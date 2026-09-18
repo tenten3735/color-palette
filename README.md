@@ -1,1 +1,1 @@
-# Study-Together
+# color-palette
