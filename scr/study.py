@@ -189,7 +189,7 @@ else:
 
 
 # -------------------------- 学習 --------------------------
-from color_palette import ColorPaletteNet
+from scr.create_model import ColorPaletteNet
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -210,8 +210,7 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 # --- モデルのインスタンスを作る
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# model = ColorPaletteNet().to(device)
-model = ColorPaletteNet()
+model = ColorPaletteNet().to(device)
 model.summary((8, ))
 
 # --- オプティマイザーの設定 ---
@@ -321,34 +320,35 @@ plt.show()
 # アプリとつなげる前の動作チェック用
 # --------------------------------------------------------------------------
 
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from color_palette import ColorPaletteNet
+# import torch
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from scr.create_model import ColorPaletteNet
 
-model = ColorPaletteNet().to(device)
-model.load_state_dict(torch.load("color_palette_best_model.pth"))
-model.eval()  # 推論モードに切り替え
+# model = ColorPaletteNet().to(device)
+# model.load_state_dict(torch.load("color_palette_best_model.pth"))
+# model.eval()  # 推論モードに切り替え
 
-# 2. テスト用の入力パラメータを作成
-# [R, G, B, Cute, Calm, Dark, Vivid, Fantasy]
-sample_input = [1.0, 0.2, 0.2,  0.9, 0.1, 0.0, 0.8, 0.2]
+# # 2. テスト用の入力パラメータを作成
+# # [R, G, B, Cute, Calm, Dark, Vivid, Fantasy]
+# sample_input = [1.0, 0.2, 0.2,  0.9, 0.1, 0.0, 0.8, 0.2]
 
-input_tensor = torch.tensor([sample_input], dtype=torch.float32).to(device)
+# input_tensor = torch.tensor([sample_input], dtype=torch.float32).to(device)
 
-with torch.no_grad():
-    predicted_colors = model(input_tensor)
+# with torch.no_grad():
+#     predicted_colors = model(input_tensor)
 
-colors_rgb = predicted_colors.cpu().numpy().reshape(5, 3)
+# colors_rgb = predicted_colors.cpu().numpy().reshape(5, 3)
 
-plt.figure(figsize=(10, 2))
-plt.suptitle("Generated 5-Color Palette")
+# plt.figure(figsize=(10, 2))
+# plt.suptitle("Generated 5-Color Palette")
 
-for i in range(5):
-    plt.subplot(1, 5, i + 1)
-    plt.imshow([[np.clip(colors_rgb[i], 0.0, 1.0)]])
-    plt.title(f"Color {i+1}")
-    plt.axis("off")
+# for i in range(5):
+#     plt.subplot(1, 5, i + 1)
+#     plt.imshow([[np.clip(colors_rgb[i], 0.0, 1.0)]])
+#     plt.title(f"Color {i+1}")
+#     plt.axis("off")
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
+
