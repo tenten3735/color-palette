@@ -165,31 +165,33 @@ print("validY shape:", validY_split.shape)
 # --- testXはそのままTensorで保持している ---
 print("testX shape:", testX.shape)
 
+os.makedirs("data", exist_ok=True)
+
 # --- trainX 保存 ---
-if os.path.exists("trainX.pt"):
-    print("trainX.pt found!")
+if os.path.exists("data/trainX.pt"):
+    print("data/trainX.pt found!")
 else:
-    torch.save(trainX, "trainX.pt")
-    print("trainX.pt saved.")
+    torch.save(trainX, "data/trainX.pt")
+    print("data/trainX.pt saved.")
 
 # --- trainY 保存 ---
-if os.path.exists("trainY.pt"):
-    print("trainY.pt found!")
+if os.path.exists("data/trainY.pt"):
+    print("data/trainY.pt found!")
 else:
-    torch.save(trainY, "trainY.pt")
-    print("trainY.pt saved.")
+    torch.save(trainY, "data/trainY.pt")
+    print("data/trainY.pt saved.")
 
 # --- testX 保存 ---
-if os.path.exists("testX.pt"):
-    print("testX.pt found!")
+if os.path.exists("data/testX.pt"):
+    print("data/testX.pt found!")
 else:
-    torch.save(testX, "testX.pt")
-    print("testX.pt saved.")
+    torch.save(testX, "data/testX.pt")
+    print("data/testX.pt saved.")
 
 
 
 # -------------------------- 学習 --------------------------
-from scr.create_model import ColorPaletteNet
+from create_model import ColorPaletteNet
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -226,7 +228,7 @@ patience = 999999  # めったに止まらない（実質EarlyStopping無効）
 
 
 # エポック数
-n_epochs = 30
+n_epochs = 50
 
 # 記録用リスト（Lossのみ記録）
 train_loss_list, valid_loss_list = [], []
@@ -283,7 +285,7 @@ for epoch in range(n_epochs):
         best_val_loss = epoch_valid_loss
         early_stop_count = 0
 
-        torch.save(model.state_dict(), "color_palette_best_model.pth")
+        torch.save(model.state_dict(), "scr/color_palette_best_model.pth")
     else:
         early_stop_count += 1
         if early_stop_count >= patience:
@@ -314,6 +316,8 @@ plt.title("Training and Validation Loss")
 # PDF画像として保存（授業のコードを踏襲）
 plt.savefig("color_loss_graph.pdf")
 plt.show()
+
+
 
 
 # --------------------------------------------------------------------------
