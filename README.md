@@ -25,9 +25,12 @@
 .
 ├── README.md                   # プロジェクトの説明と実行方法（本ファイル）
 ├── requirements.txt            # ライブラリの依存関係ファイル
+├── AGENTS.md
 ├── docs/                       # 詳細資料・スライドなど
 ├── data/                       # 使用データセット
+│   ├── dataset.jsonl
 │   ├── testX.pt
+│   ├── testY.pt
 │   ├── trainX.pt
 │   └── trainY.pt
 └── src/
