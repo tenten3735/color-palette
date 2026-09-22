@@ -1,100 +1,104 @@
 import os
-import random
 import colorsys
+import json
 
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.utils.data import TensorDataset, random_split
 
 
-# ランダムでデータを作成
-def color_data():
-    r = round(random.random(), 2)
-    g = round(random.random(), 2)
-    b = round(random.random(), 2)
+def extract_features(palette_rgb):
+    r, g, b = palette_rgb[0]
 
-    # パラメーターランダム生成
-    cute = round(random.random(), 2)      # かわいい
-    calm = round(random.random(), 2)      # おちついた
-    dark = round(random.random(), 2)      # 暗め
-    vivid = round(random.random(), 2)     # ビビッド
-    fantasy = round(random.random(), 2)   # 幻想的
+    # HSV 変換
+    hsv_list = [colorsys.rgb_to_hsv(r, g, b) for r, g, b in palette_rgb]
+    saturations = [hsv[1] for hsv in hsv_list]
+    values = [hsv[2] for hsv in hsv_list]
+    hues = [hsv[0] for hsv in hsv_list]
 
-    # RGB -> HSV
-    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    avg_s = np.mean(saturations)
+    avg_v = np.mean(values)
 
-    # ランダム生成のパラメーターをもとに調整を入れる
-    if cute > 0.5: # 彩度低め・明度高め
-        s = min(0.4, s)
-        v = max(0.8, v)
+    # 雰囲気パラメータの逆算
+    dark = float(np.clip(1.0 - avg_v, 0.0, 1.0))
+    vivid = float(np.clip(avg_s, 0.0, 1.0))
+    cute = float(np.clip(avg_v * avg_s, 0.0, 1.0))
+    calm = float(np.clip((1.0 - avg_s) * avg_v, 0.0, 1.0))
+    fantasy = float(np.clip(np.std(hues) * 2.0, 0.0, 1.0))
 
-    if calm > 0.5: # 彩度低め・明度中くらい
-        s = min(0.3, s)
-        v = max(0.4, min(0.7, v))
-
-    if dark > 0.5: # 明度低め
-        v = min(0.3, v)
-
-    if vivid > 0.5: # 彩度高め・明度高め
-        s = max(0.8, s)
-        v = max(0.8, v)
-
-    colors = []
-    for i in range(5):
-        hue_step = 0.2 if fantasy > 0.5 else 0.08
-        new_h = (h + i * hue_step) % 1.0
-        
-        r, g, b = colorsys.hsv_to_rgb(new_h, s, v)
-        colors.extend([round(r, 2), round(g, 2), round(b, 2)])
-
-    input_data = [r, g, b, cute, calm, dark, vivid, fantasy]
-    
-    return {"input": input_data, "output": colors}
+    return [r, g, b, cute, calm, dark, vivid, fantasy]
 
 
+# JSON ファイルの読み込みと変換処理
+file_path = "data/dataset.jsonl"
+X_list = []
+Y_list = []
 
-train_data_list = []
-samples_N = 10000
-for _ in range(samples_N):
-    data_pair = color_data()
-    train_data_list.append(data_pair)
+with open(file_path, "r", encoding="utf-8") as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        item = json.loads(line)
+        if not line:
+            continue
 
-random.seed(10)
-random.shuffle(train_data_list)
+        item = json.loads(line)
 
-print("学習用データの数:", len(train_data_list))
-print("最初の5個のデータペア（入力と模範解答）:")
-for i in range(5):
-    print(f"データ {i+1}:")
-    print("  入力 (ベース色+パラメータ) :", train_data_list[i]["input"])
-    print("  出力 (生成された5色RGB)  :", train_data_list[i]["output"])
+        rgb_array = np.array(item["rgbs"], dtype=np.float32) / 255.0
+
+        # 不整データを除外
+        if rgb_array.shape != (5, 3):
+            continue
+
+        x_8d = extract_features(rgb_array)
+        y_15d = rgb_array.flatten()
+
+        X_list.append(x_8d)
+        Y_list.append(y_15d)
+
+
+# PyTorch テンソルへ変換
+X_tensor = torch.tensor(np.array(X_list), dtype=torch.float32)
+Y_tensor = torch.tensor(np.array(Y_list), dtype=torch.float32)
+
+# 学習用80%・テスト用20%に分ける
+total_size = len(X_tensor)
+train_size = int(0.8 * total_size)
+test_size = total_size - train_size
+
+generator = torch.Generator().manual_seed(42)
+
+full_dataset = TensorDataset(X_tensor, Y_tensor)
+train_dataset, test_dataset = random_split(
+    full_dataset, [train_size, test_size], generator=generator
+)
+
+trainX = X_tensor[train_dataset.indices]
+trainY = Y_tensor[train_dataset.indices]
+testX = X_tensor[test_dataset.indices]
+testY = Y_tensor[test_dataset.indices]
+
+# data/ フォルダに保存
+os.makedirs("data", exist_ok=True)
+torch.save(trainX, "data/trainX.pt")
+torch.save(trainY, "data/trainY.pt")
+torch.save(testX, "data/testX.pt")
+torch.save(testY, "data/testY.pt")
+
+print(f"処理完了！ 全{total_size}件 -> 学習データ: {len(trainX)}件 / テストデータ: {len(testX)}件")
 
 
 
 # -------------------------- 学習準備 --------------------------
-trainX_list = []
-trainY_list = []
+X_tensor = torch.load("data/trainX.pt")
+Y_tensor = torch.load("data/trainY.pt")
 
-for item in train_data_list:
-    trainX_list.append(item["input"])
-    
-    trainY_list.append(item["output"])
+dataset = TensorDataset(X_tensor, Y_tensor)
 
-
-# 正規化
-trainX = np.array(trainX_list, dtype = np.float32)  # (N, 8)
-trainY = np.array(trainY_list, dtype = np.float32)  # (N, 15)
-
-# Tensor化
-trainX = torch.tensor(trainX)  # (N, 8)
-trainY = torch.tensor(trainY)  # (N, 15)
-
-# 確認
-print("trainX shape (入力データ):", trainX.shape)
-print("trainY shape (模範解答)  :", trainY.shape)
-
-print("完了")
-
+train_loader = DataLoader(dataset, batch_size=64, shuffle=True)
 
 
 # -------------------------- 表示 --------------------------
@@ -104,10 +108,10 @@ plt.figure(figsize=(12, 6))
 
 for i in range(5):
     # trainXからベース色を取得
-    base_rgb = trainX[i][:3].numpy()
+    base_rgb = X_tensor[i][:3].numpy()
     
     # trainYから出力の5色を取得して 5x3 に整形
-    colors_rgb = trainY[i].numpy().reshape(5, 3)
+    colors_rgb = Y_tensor[i].numpy().reshape(5, 3)
     
     # ベース色表示
     plt.subplot(5, 6, i * 6 + 1)
@@ -129,11 +133,6 @@ plt.show()
 
 # -------------------------- テスト用データの作成 --------------------------
 test_data_list = []
-test_N = 2000  # テストデータの数
-
-for _ in range(test_N):
-    data_pair = color_data()
-    test_data_list.append(data_pair)
 
 # 入力 (testX) と 出力 (testY) に分離
 testX_list = [item["input"] for item in test_data_list]
@@ -327,15 +326,17 @@ plt.show()
 # import torch
 # import numpy as np
 # import matplotlib.pyplot as plt
-# from scr.create_model import ColorPaletteNet
+# from create_model import ColorPaletteNet
+
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # model = ColorPaletteNet().to(device)
-# model.load_state_dict(torch.load("color_palette_best_model.pth"))
+# model.load_state_dict(torch.load("scr/color_palette_best_model.pth"))
 # model.eval()  # 推論モードに切り替え
 
-# # 2. テスト用の入力パラメータを作成
+# # テスト用の入力パラメータを作成
 # # [R, G, B, Cute, Calm, Dark, Vivid, Fantasy]
-# sample_input = [1.0, 0.2, 0.2,  0.9, 0.1, 0.0, 0.8, 0.2]
+# sample_input = [0.95, 0.4, 0.5,  0.9, 0.1, 0.0, 0.8, 0.3]
 
 # input_tensor = torch.tensor([sample_input], dtype=torch.float32).to(device)
 
